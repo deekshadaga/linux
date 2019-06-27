@@ -1,0 +1,126 @@
+                                  CASE1.TXT 
+###################################################################################
+1. launch an instance with Server Configure Details:
+
+AWS Instance Type: t2.micro
+
+AMI or Server OS: CentOS 7 (x86_64) - with Updates HVM
+
+Disk Layout: 
+
+-- Disk1: 8GB for / ( for the root volume )
+-- Attach 2 more encrypted Volumes with disk accidental termination protection(untick on delete on termination) policy of at least 4GB Size of volume when you lauch your instance 
+
+2.  use these commands to install and update basic requirements 
+ 
+ fdisk -l
+ yum install wget vim net-tools lvm2
+ yum update
+
+3.  create physical volumes
+
+ pvcreate /dev/xvdb
+ pvcreate /dev/xvdc
+ pvs
+
+4.  create virtual groups
+
+ vgcreate vg-home /dev/xvdb
+ vgcreate vg-mysql /dev/xvdc
+ vgs
+
+5.  create logical volumes
+
+ lvcreate --name lv-home --size 3.9G vg-home
+ lvcreate --name lv-mysql --size 3.9G vg-mysql
+
+6.  format them with xfs
+
+ mkfs.xfs /dev/vg-home/lv-home
+ mkfs.xfs /dev/vg-mysql/lv-mysql
+
+7.  mount them on respective directories
+
+ mkdir /var/lib/mysql/ 
+ mkdir /home2/
+ mount /dev/vg-home/lv-home /home2/
+ mount /dev/vg-mysql/lv-mysql /var/lib/mysql/  
+ df -hT #to check if they are mounted properly
+
+NOTE: for the terminal to connect using ssh we need to use "setenforce 0" to disable selinux if mounted on /home/
+ 
+8.  make entry in /etc/fstab and check if it's done properly
+
+ [root@ip-172-31-36-213 ~]# cat /etc/fstab
+
+ #
+ # /etc/fstab
+ # Created by anaconda on Mon Jan 28 20:51:49 2019
+ #
+ # Accessible filesystems, by reference, are maintained under '/dev/disk'
+ # See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+ #
+ UUID=f41e390f-835b-4223-a9bb-9b45984ddf8d /                       xfs     defaults        0 0
+ /dev/vg-home/lv-home /home2/ xfs noexec,defaults 0 0
+ /dev/vg-mysql/lv-mysql /var/lib/mysql/ xfs noexec,defaults 0 0
+
+ [root@ip-172-31-36-213 ~]# mount -a # to check fstab entry
+
+9.   reboot
+
+#############################################################################################################################
+
+1.  disable selinux 
+ 
+ setenforce 0
+  -- go to /etc/selinux/config or /etc/sysconfig/selinux then chenge SELINUX=enforcing into SELINUX=disable
+
+2.  set IST timezone 
+
+ timedatectl set-timezone Asia/Kolkata  
+
+3.  set dynamic motd file using https://adhocnw.org/motd.txt
+
+ [root@ip-172-31-36-213 ~]# cat /etc/profile.d/motd.sh
+ #!/bin/bash/
+ echo "
+ ###############################################################
+ #                 Authorized access only!                     #
+ # Disconnect IMMEDIATELY if you are not an authorized user!!! #
+ #         All actions Will be monitored and recorded          #
+ ###############################################################
+ +++++++++++++++++++++++++++++++ SERVER INFO ++++++++++++++++++++++++++++++++
+ "
+ a=$(cat /proc/cpuinfo | grep -w 'model name' | awk -F: '{print $2}')
+ echo "             CPU:$a                "
+ b=$(cat /proc/meminfo | grep -w 'MemTotal' | awk -F: '{print $2/1000}')
+ echo "             Memory: $b M               "
+ c=$(cat /proc/meminfo | grep -w 'SwapTotal' | awk -F: '{print $2/1000}')
+ echo "             Swap: $c M                "
+ d=$(fdisk -l | egrep 'Disk.*bytes' | awk '{ sub(/,/,""); sum +=$3 } END { print sum/1000 }')
+ echo "             Disk: $d G                "
+ e=$(cat /etc/system-release)
+ echo "             Distro: $e                "
+ f=$( uptime | awk -F: '{print $5}')
+ echo "             CPU Load: $f               "
+ g=$(cat /proc/meminfo | grep -w 'MemFree' | awk -F: '{print $2/1000}')
+ echo "             Free Memory: $g M               "
+ h=$(cat /proc/meminfo | grep -w 'SwapFree' | awk -F: '{print $2/1000}')
+ echo "             Free Swap: $h M               "
+ i=$( df -h --total | grep -w 'total' | awk '{print $4}')
+ echo "             Free Disk: $i                "
+ j=$(curl ifconfig.co)
+ echo "             Public Address: $j                "
+ k=$(hostname -I)
+ echo "             Private Address: $k                "
+ echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+
+####################################################################################################################################
+
+1. Install Apache 2.4.x server with SSL and proxy module support
+
+ yum install httpd
+ yum install mod_ssl
+ yum install mod_proxy
+
+2. in progress... 
